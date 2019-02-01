@@ -1,0 +1,11 @@
+{
+  "name": "Frikkadel",
+  "version": "0.0.1",
+  "dependencies": {
+    "body-parser": "^1.14.1",
+    "express": "^4.10.6",
+    "mysql": "^2.5.4",
+    "mysql-connection-pool-manager": "^1.5.7",
+    "winston": "^2.1.1"
+  }
+}

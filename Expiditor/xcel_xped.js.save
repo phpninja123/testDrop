@@ -1,0 +1,203 @@
+/************************
+
+
+  INCLUDES
+ 
+
+*************************/
+
+var express = require("express");
+var mysql = require('mysql');
+var bodyParser = require('body-parser');
+var winston = require('winston');
+var path = require('path');
+var xlsx = require('xlsx');
+
+
+var app = express();
+var nd = new Date();
+var filename = path.join(__dirname, 'debuglogs/GDP_Livefeed-logfile.log');
+//var filename = '/var/www/GDP_Livefeed-logfile.log'; // + nd.getFullYear() +''+ nd.getMonth()+''+ nd.getDate() + '.log';
+process.env.TZ = 'Africa/Johannesburg';
+
+app.use(function(req, res, next) {
+  if ((req.is('text/*')) || (req.is('application/json')))  {
+    req.text = '';
+    req.setEncoding('utf8');
+    req.on('data', function(chunk) {
+      req.text += chunk;
+    });
+    req.on('end', next);
+  } else {
+    next();
+  }
+});
+/*
+app.use(bodyParser.urlencoded({
+  extended: true
+}));
+*/
+/*
+app.use(bodyParser.json());
+*/
+
+
+/***** 
+Initialise the logger that is to log everything to file 
+*****/
+var logger = new(winston.Logger)({  
+  transports: [
+    new(winston.transports.Console)(),
+    new(winston.transports.File)({
+      filename: filename
+    })
+  ]
+});
+
+//set Log level
+logger.level = 'info';
+
+/***** 
+initialise the mysql connection pool 
+*****/
+var pool = mysql.createPool({
+  connectionLimit: 200,
+  acquireTimeout: 10000,
+  host: '127.0.0.1',
+  user: 'elecdbhb_siteusr',
+  port: 3306,
+  password: 'TheMostAmazingPasswordEver@1985',
+  database: 'elecdbhb_dev_it',
+  debug: false
+});
+
+/*****
+
+Read an excel file
+
+*****/
+
+function readExcelFile()
+{
+
+  
+  var workbook = xlsx.readFile('testfile.xlsx');
+
+  var sheet_name_list = workbook.SheetNames;
+  sheet_name_list.forEach(function(y) { /* iterate through sheets */
+    var worksheet = workbook.Sheets[y];
+    var tmpstr = '';
+    var row = '';    
+    for (z in worksheet) {
+      /* all keys that do not begin with "!" correspond to cell addresses */
+      if(z[0] === '!') 
+      {
+        console.log('------------------------------');
+      }
+      else
+      {
+        if ((row != '') && (row != (z[1]+z[2])))
+        {
+          console.log(row);
+          console.log(tmpstr);
+          tmpstr = '';
+          row = (z[1]+z[2]);
+        }
+        else if (row == '')
+        {
+          row = (z[1]+z[2]);
+        }
+
+        tmpstr = tmpstr + '|' + worksheet[z].v;
+
+        //console.log(z[0]);
+        //console.log(worksheet[z]);
+        //console.log(z+'##' + worksheet[z].v + '##'+z);
+        //console.log(y + "!" + z + "=" + JSON.stringify(worksheet[z].v));
+      }
+    }
+    console.log(row);
+          console.log(tmpstr);
+  });
+  
+
+
+
+
+}
+
+
+
+
+
+readExcelFile();
+
+
+
+
+
+
+
+
+
+
+
+
+/**********
+Process ECHO PACKET here
+**********/
+
+app.post('/post/echo', function(req, res) {
+  logger.log('info', 'function-->' + 'app.post');
+  GetIPofConnectedClient(req);
+
+  var str = req.text;
+
+
+  //console.log(str);
+  var jsonData = JSON.parse(str);
+
+
+  if (jsonData.PCK !== null)
+  {
+
+    //Update Unit Parameters (Battery Voltage)
+
+    DoRemoveHeaders(res, 200);
+   
+    res.status(200).json(jsonData);
+
+    logger.log('info', '=====OUTGOING:POS=====', {
+      time: getTimea()
+    });
+  }
+  else
+  {
+    res.status(400).json({ response : "No Packet Found"});  
+  }
+
+}).setMaxListeners(0);
+
+
+/**********
+Process ECHO PACKET here
+**********/
+
+app.post('/maildude/', function(req, res) {
+  logger.log('info', 'function-->' + 'app.post');
+
+  var str = req.text;
+	console.log(str);
+  res.sendStatus(200);
+
+}).setMaxListeners(0);
+
+
+
+app.listen(10000,function(){
+  console.log('listening on port 10000');
+});
+
+
+
+console.log(str);

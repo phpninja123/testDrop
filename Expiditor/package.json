@@ -1,0 +1,21 @@
+{
+  "name": "excel_expeditor",
+  "version": "1.0.0",
+  "dependencies": {
+    "body-parser": "^1.15.0",
+    "express": "^4.13.4",
+    "multer": "^1.1.0",
+    "mysql": "^2.10.2",
+    "walk": "^2.3.9",
+    "winston": "^2.2.0",
+    "xlsx": "^0.8.0"
+  },
+  "description": "This is an excel file expeditor",
+  "main": "xcel_xped.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "ElecDesign (PTY)",
+  "license": "ISC"
+}
