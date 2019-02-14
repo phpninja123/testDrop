@@ -3,6 +3,7 @@ var mysql = require('mysql');
 var bodyParser = require('body-parser');
 var winston = require('winston');
 var path = require('path');
+var Joi = require('joi');
 var app = express();
 var nd = new Date();
 const v = require('./validator')
@@ -475,18 +476,19 @@ function LogIncomingPackage(jsonData, contentType, IPofClient) {
     });
 }
 
-// app.use(function(req, res, next) {
-//     if (req.is('*/*')) {
-//         req.text = '';
-//         req.setEncoding('utf8');
-//         req.on('data', function(chunk) {
-//             req.text += chunk
-//         });
-//         req.on('end', next);
-//     } else {
-//         next();
-//     }
-// });
+app.use(function(req, res, next) {
+    if (req.is('*/*')) {
+        req.text = '';
+        req.setEncoding('utf8');
+        req.on('data', function(chunk) {
+            req.text += chunk
+        });
+        req.on('end', next);
+        next();
+    } else {
+        next();
+    }
+});
 
 function validateAndLogUserAgent(userAgent){
   if( userAgent && userAgent.indexOf("UBLOX-HttpClient") === -1 ){
@@ -495,29 +497,46 @@ function validateAndLogUserAgent(userAgent){
 }
 
 function validatePayload(req, res, next){
-    console.log("+++++ Body +++++",req.body);
-    try {
-        const validate = v.object({
-            "DT": v.optional(v.number),
-            "ID": v.optional(v.string),
-            "PR": v.optional(v.number),
-            "TR": v.optional(v.number),
-            "PCK": v.optional(v.number),
-            "PD": v.optional(v.number),
-            "PT": v.optional(v.number),
-            "TF": v.optional(v.number),
-            "BV": v.optional(v.number),
-            "AC": v.optional(v.number),
-            "EF": v.optional(v.number)
-        });        
-        validate(req.body);
-        console.log("+++ Success +++");
-        return true;
-    }
-    catch (err) {
-        console.log("+++ Error +++", err.message);
-        return false;
-    }
+    const schema = Joi.object().keys({
+        ID: Joi.number().integer().min(100000000000000).max(999999999999999).required(),
+        DT: Joi.number().required(),
+        PR: Joi.number().required(),
+        TR: Joi.number().required(),
+        PCK: Joi.number().required(),
+        PD: Joi.number().required(),
+        PT: Joi.number().required(),
+        TF: Joi.number().required(),
+        BV: Joi.number().required(),
+        AC: Joi.number().required(),
+        EF: Joi.number().required()
+    })
+    const result = Joi.validate(req.body, schema);
+    logger.log('error', "400 Bad Request");
+    logger.log('error', result.error);
+    return (result.error === null) ? true: false;
+    // console.log("+++++ Body +++++",req.body);
+    // try {
+    //     const validate = v.object({
+    //         "DT": v.optional(v.number),
+    //         "ID": v.optional(v.string),
+    //         "PR": v.optional(v.number),
+    //         "TR": v.optional(v.number),
+    //         "PCK": v.optional(v.number),
+    //         "PD": v.optional(v.number),
+    //         "PT": v.optional(v.number),
+    //         "TF": v.optional(v.number),
+    //         "BV": v.optional(v.number),
+    //         "AC": v.optional(v.number),
+    //         "EF": v.optional(v.number)
+    //     });        
+    //     validate(req.body);
+    //     console.log("+++ Success +++");
+    //     return true;
+    // }
+    // catch (err) {
+    //     console.log("+++ Error +++", err.message);
+    //     return false;
+    // }
 }
 
 function insertstr(str, index, value) {
