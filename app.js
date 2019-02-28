@@ -4,14 +4,17 @@ var bodyParser = require('body-parser');
 var winston = require('winston');
 var path = require('path');
 var Joi = require('joi');
+const helmet = require('helmet')
 var app = express();
 var nd = new Date();
 const v = require('./validator')
 //var filename = path.join(__dirname, 'debuglogs/created-logfile.log');
 var filename = '/var/www/created-logfile.log'; // + nd.getFullYear() +''+ nd.getMonth()+''+ nd.getDate() + '.log';
 process.env.TZ = 'Africa/Johannesburg';
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(helmet());
 
 // app.use(bodyParser.urlencoded({
 //   extended: true
@@ -493,6 +496,7 @@ app.use(function(req, res, next) {
 function validateAndLogUserAgent(userAgent){
   if( userAgent && userAgent.indexOf("UBLOX-HttpClient") === -1 ){
     logger.log('error', userAgent);
+    log_error("Invalid Header", userAgent);
   }
 }
 
@@ -511,47 +515,39 @@ function validatePayload(req, res, next){
         EF: Joi.number().required()
     })
     const result = Joi.validate(req.body, schema);
+    log_error("Data Validation", result.error);
     logger.log('error', "400 Bad Request");
     logger.log('error', result.error);
     return (result.error === null) ? true: false;
-    // console.log("+++++ Body +++++",req.body);
-    // try {
-    //     const validate = v.object({
-    //         "DT": v.optional(v.number),
-    //         "ID": v.optional(v.string),
-    //         "PR": v.optional(v.number),
-    //         "TR": v.optional(v.number),
-    //         "PCK": v.optional(v.number),
-    //         "PD": v.optional(v.number),
-    //         "PT": v.optional(v.number),
-    //         "TF": v.optional(v.number),
-    //         "BV": v.optional(v.number),
-    //         "AC": v.optional(v.number),
-    //         "EF": v.optional(v.number)
-    //     });        
-    //     validate(req.body);
-    //     console.log("+++ Success +++");
-    //     return true;
-    // }
-    // catch (err) {
-    //     console.log("+++ Error +++", err.message);
-    //     return false;
-    // }
+}
+
+function log_error(ErrorType, Description) {
+    logger.log('error', 'logging error-->' + 'log_error');
+    pool.getConnection(function(err, connection) {
+        console.log("++++ err +++++", err);
+        var query = "INSERT INTO log_error(`ErrorType`, `Description`, `Created`) VALUES ('"+ErrorType+"', '"+Description+"', now())";
+        logger.log('debug', 'query :' + query);
+        connection.query(query, function(err, rows) {
+            doConnectionRelease(connection);
+            if (!rows) {} else {}
+        });
+    });
 }
 
 function insertstr(str, index, value) {
     return str.substr(0, index) + value + str.substr(index);
 }
+
 /**********
 Process Unit Data here
 **********/
 app.post('/post', function(req, res) {
     let result = validatePayload(req, res);
-    if( !result ){
-        res.sendStatus(400);
-        res.end();
-        return false;
-    }
+    // if( !result ){
+    //     res.sendStatus(400);
+    //     res.end();
+    //     return false;
+    // }
     /* validating user agent and logging if there is any issue */
     validateAndLogUserAgent(req.header('User-Agent'));
     
