@@ -2,6 +2,7 @@
   "name": "Frikkadel",
   "version": "0.0.1",
   "dependencies": {
+    "busboy": "^0.3.0",
     "body-parser": "^1.14.1",
     "express": "^4.10.6",
     "helmet": "^3.15.1",

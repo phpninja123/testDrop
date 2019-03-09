@@ -11,7 +11,7 @@ const v = require('./validator')
 //var filename = path.join(__dirname, 'debuglogs/created-logfile.log');
 var filename = '/var/www/created-logfile.log'; // + nd.getFullYear() +''+ nd.getMonth()+''+ nd.getDate() + '.log';
 process.env.TZ = 'Africa/Johannesburg';
-
+var Busboy = require('busboy');
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(helmet());
@@ -455,9 +455,15 @@ function LogIncomingPackage(jsonData, contentType, IPofClient) {
             doConnectionRelease(connection);
             return;
         }
-        var str = JSON.stringify(jsonData);
+        var str;
+        if (typeof jsonData == "object" ) {
+            jsonData = JSON.stringify(jsonData);
+        } 
+        str = JSON.stringify(jsonData);
+        
+        console.log("++++ JSON String ++++", typeof str);
         var query = 'INSERT INTO `idl_incoming_data_log`( `idl_IP`,`idl_Input_Type`, `idl_Data`, `idl_Date_Created`,`idl_ID`) ' +
-            ' VALUES ("' + IPofClient + '","' + contentType + '","' + replaceAll(str, '"', '""') + '",unix_timestamp(),"' + jsonData.ID + '")';
+            ' VALUES ("' + IPofClient + '","' + contentType + '",' + str + ',unix_timestamp(),"' + jsonData.ID + '")';
         console.log(query);
         connection.query(query, function(err, rows) {
             doConnectionRelease(connection);
@@ -538,17 +544,38 @@ function insertstr(str, index, value) {
     return str.substr(0, index) + value + str.substr(index);
 }
 
+async function getFileData(req, res) {
+    var busboy = new Busboy({ headers: req.headers });
+    busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
+        console.log('File [' + fieldname + ']: filename: ' + filename + ', encoding: ' + encoding + ', mimetype: ' + mimetype);
+        file.on('data', function(data) {
+          str = data.toString("utf-8", 0);
+          handlePostData(req, res, str);
+          console.log("+++++ data +++++", data.toString("utf-8", 0));
+          console.log('File [' + fieldname + '] got ' + data.length + ' bytes');
+        });
+        file.on('end', function() {
+          console.log('File [' + fieldname + '] Finished');
+        });
+      });
+      req.pipe(busboy);
+}
+
 /**********
 Process Unit Data here
 **********/
-app.post('/post', function(req, res) {
-    let result = validatePayload(req, res);
-    // if( !result ){
-    //     res.sendStatus(400);
-    //     res.end();
-    //     return false;
-    // }
-    /* validating user agent and logging if there is any issue */
+app.post('/post', async function(req, res) {
+    var str = req.body;
+    // var result = validatePayload(req, res);
+    console.log("++++ header ++++", req.headers["content-type"])
+    if ( req.headers["content-type"] != "application/json" ) {
+        var fileData = await getFileData(req, res);
+    } else {
+        handlePostData(req, res, str);
+    }
+}).setMaxListeners(0);
+
+function handlePostData(req, res, str) {
     validateAndLogUserAgent(req.header('User-Agent'));
     
     logger.log('info', 'function-->' + 'app.post');
@@ -561,92 +588,9 @@ app.post('/post', function(req, res) {
         IP: ipnew,
         body: req.text
     });
-    //console.log( req);
-    // var str = req.text;
-    var str = req.body;
-    // console.log("BEFORE : " + str);
-    // if (str.indexOf("U1Blox2Http3Unique4Boundary5") > -1) {
-    //     str = str.substring((str.indexOf("{") - 1));
-    //     str = str.substring(0, (str.lastIndexOf("}") + 1));
-    // }
-    // str = str.replace(/0\\u0001\\u0002/gi, "0}");
-    // str = str.replace(/\\u0001\\u0002/gi, "0}");
-    // str = str.replace(/0\\u0002/gi, "0}");
-    // str = str.replace(/\\u0002/gi, "0}");
-    // str = str.replace(/0\\u0001\\u0001/gi, "0}");
-    // str = str.replace(/0\\u0002\\u0002/gi, "0}");
-    // str = str.replace(/\\u0001\\u0001/gi, "0}");
-    // str = str.replace(/\\u0002\\u0002/gi, "0}");
-    // str = str.replace(/\\u0001\"}/gi, "}");
-    // str = str.replace(/\\u0002\"}/gi, "}");
-    // str = str.replace(/\\u0003\"}/gi, "}");
-    // str = str.replace(/\\u0004\"}/gi, "}");
-    // str = str.replace(/\\u0005\"}/gi, "}");
-    // str = str.replace(/\\u0006\"}/gi, "}");
-    // str = str.replace(/\\u0001}/gi, "}");
-    // str = str.replace(/\\u0002}/gi, "}");
-    // str = str.replace(/\\u0003}/gi, "}");
-    // str = str.replace(/\\u0004}/gi, "}");
-    // str = str.replace(/\\u0005}/gi, "}");
-    // str = str.replace(/\\u0006}/gi, "}");
-    // str = str.replace(/\\u0001\"/gi, "");
-    // str = str.replace(/\\u0002\"/gi, "");
-    // str = str.replace(/\\u0003\"/gi, "");
-    // str = str.replace(/\\u0004\"/gi, "");
-    // str = str.replace(/\\u0005\"/gi, "");
-    // str = str.replace(/\\u0006\"/gi, "");
-    // str = str.replace(/\\u0001/gi, "");
-    // str = str.replace(/\\u0002/gi, "");
-    // str = str.replace(/\\u0003/gi, "");
-    // str = str.replace(/\\u0004/gi, "");
-    // str = str.replace(/\\u0005/gi, "");
-    // str = str.replace(/\\u0006/gi, "");
-    // if (str.substring(str.length - 1) != '}') {
-    //     str = str + "}";
-    // }
-    // logger.log('debug', "AFTER : " + str);
-    // var checksomething = str.split("}{").length - 1;
-    // logger.log('debug', "json packet count : " + checksomething);
-    // if (checksomething >= 1) {
-    //     /***** 
-    //      MULTIPLE PACKET IMPLEMENTATION
-
-    //      *****/
-    //     str = str.replace("}{", "}|{");
-    //     var bassArr = str.split("|");
-    //     var currentID = '';
-    //     for (var i = 0; i <= bassArr.length - 1; i++) {
-    //         logger.log('info', '=========== ', bassArr[i]);
-    //         var jsondata = JSON.parse(bassArr[i]);
-    //         logger.log('debug', 'Dis net sad ', jsondata.PCK);
-    //         if (jsondata.PCK == null) {
-    //             logger.log('info', 'Nothing Valid to Process ', {
-    //                 time: getTimea()
-    //             });
-    //             //DoRemoveHeaders(res,200);
-    //             //res.end();
-    //             //logger.log('info', '=====OUTGOING:POS=====', {time : getTimea()});
-    //             logger.log('info', 'Checking Backlog MULITPLE')
-    //             checkbacklog(req, res, currentID);
-    //             return;
-    //         } else {
-    //             currentID = jsondata.ID;
-    //             logger.log('debug', 'starttime ', {
-    //                 time: getTimea()
-    //             });
-    //             handle_database(jsondata, res, req);
-    //         }
-    //     }
-    //     //logger.log('debug', 'Before Check BackLog', {time : getTimea()});
-    //     //checkbacklog(req, res,currentID);
-    //     return;
-    //     /***** 
-
-    //      END
-
-    //     *****/
-    // }
+    console.log("+++++ STR +++++", str);
     var jsondata = str;
+    console.log("+++ JSON DATA ++++", str);
     LogIncomingPackage(jsondata, 'JSON', ipnew);
     var connection = null;
     logger.log('debug', 'Dis net sad ', jsondata.PCK);
@@ -731,7 +675,7 @@ app.post('/post', function(req, res) {
         });
         handle_database(jsondata, res, req);
     }
-}).setMaxListeners(0);
+}
 app.get("/get/time", function(req, res) {
     logger.log('info', 'function-->' + 'app.get');
     var ipnew = req.headers['x-forwarded-for'] ||
